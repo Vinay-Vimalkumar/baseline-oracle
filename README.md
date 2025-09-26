@@ -28,20 +28,22 @@ Baseline Oracle automates these decisions and provides **actionable guardrails +
 
 ## 🏗️ Project Structure
 
+```text
 baseline-oracle/
 ├── packages/
-│ ├── engine/ # Parsers, detectors, risk scoring
-│ ├── data/ # Baseline API + web-features access
-│ ├── suggest/ # Codemods & fallback recipes
-│ ├── cli/ # Baseline CLI (scan/report/policy)
-│ ├── gh-action/ # GitHub Action wrapper
-│ ├── report/ # HTML report generator
-│ ├── optimizer/ # Polyfill Optimizer plugins
-│ └── time-machine/ # Snapshot simulator & middleware
+│   ├── engine/        # Parsers, detectors, risk scoring
+│   ├── data/          # Baseline API + web-features access
+│   ├── suggest/       # Codemods & fallback recipes
+│   ├── cli/           # Baseline CLI (scan/report/policy)
+│   ├── gh-action/     # GitHub Action wrapper
+│   ├── report/        # HTML report generator
+│   ├── optimizer/     # Polyfill Optimizer plugins
+│   └── time-machine/  # Snapshot simulator & middleware
 ├── apps/
-│ ├── dashboard/ # Risk trend & explorer UI
-│ └── examples/ # Demo apps
+│   ├── dashboard/     # Risk trend & explorer UI
+│   └── examples/      # Demo apps
 └── LICENSE
+```
 
 ---
 
