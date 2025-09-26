@@ -27,6 +27,7 @@ Baseline Oracle automates these decisions and provides **actionable guardrails +
 ---
 
 ## 🏗️ Project Structure
+
 baseline-oracle/
 ├── packages/
 │ ├── engine/ # Parsers, detectors, risk scoring
