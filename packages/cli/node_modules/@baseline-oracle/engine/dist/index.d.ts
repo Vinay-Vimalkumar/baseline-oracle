@@ -1,6 +1,10 @@
+/**
+ * Types
+ */
+type BaselineStatus = "widely" | "newly" | "not-baseline";
 type Finding = {
     id: string;
-    status: "widely" | "newly" | "not-baseline";
+    status: BaselineStatus;
     risk: number;
     files: {
         path: string;
@@ -14,6 +18,9 @@ type ScanResult = {
     };
     features: Finding[];
 };
+/**
+ * Main entry: globs files, runs analyzers, merges results, computes summary.
+ */
 export declare function analyzePath(inputPaths: string[], opts?: {
     target: "widely" | "newly";
     ignore?: string[];

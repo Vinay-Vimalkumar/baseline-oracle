@@ -1,18 +1,43 @@
 ﻿import fs from "fs";
 import path from "path";
 
+function docLink(id: string) {
+  // MDN Baseline docs hosted here:
+  return `https://web-platform-dx.github.io/web-features/features/${id}.html`;
+}
+
+function statusPill(status: string) {
+  let color = "#ccc";
+  if (status === "not-baseline") color = "#fee2e2"; // red background
+  if (status === "newly") color = "#fef9c3"; // yellow background
+  if (status === "widely") color = "#dcfce7"; // green background
+  return `<span style="
+    display:inline-block;
+    padding:2px 8px;
+    border-radius:999px;
+    background:${color};
+    font-weight:500;
+  ">${status}</span>`;
+}
+
 export function renderReport(results: any, outFile: string) {
   const summary = results?.summary ?? {};
   const features = results?.features ?? [];
 
-  const rows = features.map((f: any) => `
+  const rows = features
+    .map(
+      (f: any) => `
     <tr>
-      <td>${f.id ?? ""}</td>
-      <td>${f.status ?? ""}</td>
+      <td><a href="${docLink(f.id)}" target="_blank">${f.id ?? ""}</a></td>
+      <td>${statusPill(f.status ?? "")}</td>
       <td>${f.risk ?? 0}</td>
-      <td>${(f.files || []).map((x:any)=>x.path+":"+(x.loc??"")).join("<br/>")}</td>
+      <td>${(f.files || [])
+        .map((x: any) => x.path + ":" + (x.loc ?? ""))
+        .join("<br/>")}</td>
     </tr>
-  `).join("");
+  `
+    )
+    .join("");
 
   const html = `<!doctype html>
   <html>
@@ -28,6 +53,8 @@ export function renderReport(results: any, outFile: string) {
       th{background:#f5f7fa;text-align:left}
       .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#eef2ff}
       code{background:#f6f8fa;padding:2px 6px;border-radius:6px}
+      a{color:#0645ad;text-decoration:none;}
+      a:hover{text-decoration:underline;}
     </style>
   </head>
   <body>

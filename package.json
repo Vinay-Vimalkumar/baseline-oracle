@@ -7,6 +7,10 @@
   ],
   "scripts": {
     "build": "pnpm -r run build",
+    "scan": "node packages/cli/dist/index.js scan --out .baseline/scan.json",
+    "report": "node packages/cli/dist/index.js report .baseline/scan.json --html .baseline/report.html",
+    "policy": "node packages/cli/dist/index.js policy .baseline/scan.json",
+    "demo": "pnpm build && pnpm scan && pnpm report && start .baseline/report.html",
     "dev": "pnpm -r run dev"
   },
   "devDependencies": {
@@ -19,6 +23,7 @@
     "picocolors": "^1.1.1",
     "postcss": "^8.5.6",
     "postcss-selector-parser": "^7.1.0",
+    "web-features": "^3.1.0",
     "zod": "^4.1.11"
   }
 }

@@ -43,11 +43,58 @@ const fast_glob_1 = __importDefault(require("fast-glob"));
 const postcss_1 = __importDefault(require("postcss"));
 const postcss_selector_parser_1 = __importDefault(require("postcss-selector-parser"));
 const acorn = __importStar(require("acorn"));
+/**
+ * Try to load Baseline statuses from `web-features`.
+ * - Works if `web-features` is installed.
+ * - If unavailable or id missing, we fall back to caller-provided default.
+ */
+let baselineStatuses = {};
+try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    baselineStatuses = require("web-features/data/baseline-status.json");
+}
+catch {
+    // keep empty map; we'll use fallbacks
+}
+/**
+ * Map our detector IDs -> canonical web-features IDs (best-effort).
+ * If you're unsure of an exact id, keep it identical and rely on fallback.
+ *
+ * You can refine these as you wire more detectors:
+ *   https://www.npmjs.com/package/web-features
+ */
+const WEB_FEATURE_ID = {
+    "css-selector-has": "css-selector-has", // CSS :has()
+    "css-container-queries": "css-container-queries", // @container queries
+    "css-color-lch-lab": "css-color-lch-lab", // lch()/lab()
+    "view-transitions-api": "view-transitions-api", // document.startViewTransition
+    "html-dialog-element": "html-dialog-element" // <dialog>/showModal()
+};
+/**
+ * Lookup Baseline status for a (possibly mapped) feature id.
+ * Falls back to the provided default if not found.
+ */
+function baselineStatusFor(internalId, fallback) {
+    const webId = WEB_FEATURE_ID[internalId] ?? internalId;
+    const s = baselineStatuses[webId]?.baseline?.status;
+    if (s === "widely" || s === "newly" || s === "not-baseline")
+        return s;
+    return fallback;
+}
+/**
+ * Simple risk scoring:
+ * - Base by status
+ * - Severity reduction if there's an easy fallback
+ */
 function score(status, hasEasyFallback) {
     const base = status === "not-baseline" ? 1 : status === "newly" ? 0.6 : 0.2;
     const severity = hasEasyFallback ? 0.5 : 1.0;
     return Math.round(base * severity * 100);
 }
+/**
+ * CSS analysis:
+ * - Detects :has(), @container, lch()/lab() usage
+ */
 async function analyzeCss(filePath) {
     const css = fs_1.default.readFileSync(filePath, "utf8");
     const root = postcss_1.default.parse(css);
@@ -74,58 +121,73 @@ async function analyzeCss(filePath) {
     });
     const findings = [];
     if (hasHas) {
+        const status = baselineStatusFor("css-selector-has", "not-baseline");
         findings.push({
             id: "css-selector-has",
-            status: "not-baseline", // TODO: replace with real Baseline lookup
-            risk: score("not-baseline", /*easy fallback?*/ true),
+            status,
+            risk: score(status, /* easy fallback? */ true),
             files: [{ path: filePath }]
         });
     }
     if (hasContainer) {
+        const status = baselineStatusFor("css-container-queries", "newly");
         findings.push({
             id: "css-container-queries",
-            status: "newly",
-            risk: score("newly", false),
+            status,
+            risk: score(status, /* easy fallback? */ false),
             files: [{ path: filePath }]
         });
     }
     if (hasModernColor) {
+        const status = baselineStatusFor("css-color-lch-lab", "newly");
         findings.push({
             id: "css-color-lch-lab",
-            status: "newly",
-            risk: score("newly", true),
+            status,
+            risk: score(status, /* easy fallback? */ true),
             files: [{ path: filePath }]
         });
     }
     return findings;
 }
+/**
+ * JS analysis (very light, string-based now; can be AST-driven later):
+ * - View Transitions API
+ * - HTMLDialogElement / showModal()
+ */
 async function analyzeJs(filePath) {
     const src = fs_1.default.readFileSync(filePath, "utf8");
-    const ast = acorn.parse(src, { ecmaVersion: "latest", sourceType: "module" });
+    // Parse to ensure it's valid JS (we don't traverse yet, but ready to)
+    acorn.parse(src, { ecmaVersion: "latest", sourceType: "module" });
     const findings = [];
-    // extremely light checks
-    const code = src;
-    if (/\bdocument\.startViewTransition\b/.test(code)) {
+    if (/\bdocument\.startViewTransition\b/.test(src)) {
+        const status = baselineStatusFor("view-transitions-api", "newly");
         findings.push({
             id: "view-transitions-api",
-            status: "newly",
-            risk: score("newly", true),
+            status,
+            risk: score(status, /* easy fallback? */ true),
             files: [{ path: filePath }]
         });
     }
-    if (/\bdialog\.showModal\(\)/.test(code) || /\bHTMLDialogElement\b/.test(code)) {
+    if (/\bdialog\.showModal\(\)/.test(src) || /\bHTMLDialogElement\b/.test(src)) {
+        const status = baselineStatusFor("html-dialog-element", "widely");
         findings.push({
             id: "html-dialog-element",
-            status: "widely",
-            risk: score("widely", true),
+            status,
+            risk: score(status, /* easy fallback? */ true),
             files: [{ path: filePath }]
         });
     }
     return findings;
 }
+/**
+ * Main entry: globs files, runs analyzers, merges results, computes summary.
+ */
 async function analyzePath(inputPaths, opts = { target: "widely" }) {
     const patterns = inputPaths.length ? inputPaths : ["demo.css"];
-    const files = await (0, fast_glob_1.default)(patterns, { ignore: opts.ignore ?? ["**/node_modules/**"], dot: false });
+    const files = await (0, fast_glob_1.default)(patterns, {
+        ignore: opts.ignore ?? ["**/node_modules/**"],
+        dot: false
+    });
     const all = [];
     for (const f of files) {
         const ext = path_1.default.extname(f).toLowerCase();
@@ -143,7 +205,7 @@ async function analyzePath(inputPaths, opts = { target: "widely" }) {
         if (prev) {
             prev.files.push(...item.files);
             prev.risk = Math.max(prev.risk, item.risk);
-            // keep worst status
+            // keep worst status (not-baseline > newly > widely)
             const order = { "not-baseline": 3, "newly": 2, "widely": 1 };
             if (order[item.status] > order[prev.status])
                 prev.status = item.status;

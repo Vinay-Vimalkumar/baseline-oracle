@@ -1,17 +1,29 @@
 {
   "summary": {
     "target": "widely",
-    "riskScore": 42
+    "riskScore": 50
   },
   "features": [
     {
       "id": "css-selector-has",
       "status": "not-baseline",
-      "risk": 42,
+      "risk": 50,
       "files": [
         {
-          "path": "demo.css",
-          "loc": 1
+          "path": "demo.css"
+        },
+        {
+          "path": "src/app.css"
+        }
+      ]
+    },
+    {
+      "id": "view-transitions-api",
+      "status": "newly",
+      "risk": 30,
+      "files": [
+        {
+          "path": "src/app.js"
         }
       ]
     }

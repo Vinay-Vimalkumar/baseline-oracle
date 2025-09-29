@@ -23,6 +23,9 @@ importers:
       postcss-selector-parser:
         specifier: ^7.1.0
         version: 7.1.0
+      web-features:
+        specifier: ^3.1.0
+        version: 3.1.0
       zod:
         specifier: ^4.1.11
         version: 4.1.11
@@ -162,6 +165,9 @@ packages:
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
 
+  web-features@3.1.0:
+    resolution: {integrity: sha512-Qa91dX/87XTWp77zr7pE1LXIaoABtBWH3mxMdPbRzzSe04Q9zx/WKWng/lFPv4IdsztUFPiAqB1JnE+27cDbfw==}
+
   zod@4.1.11:
     resolution: {integrity: sha512-WPsqwxITS2tzx1bzhIKsEs19ABD5vmCVa4xBo2tq/SrV4RNZtfws1EnCWQXM6yh8bD08a1idvkB5MZSBiZsjwg==}
 
@@ -262,5 +268,7 @@ snapshots:
   undici-types@7.12.0: {}
 
   util-deprecate@1.0.2: {}
+
+  web-features@3.1.0: {}
 
   zod@4.1.11: {}

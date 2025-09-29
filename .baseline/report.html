@@ -12,13 +12,15 @@
       th{background:#f5f7fa;text-align:left}
       .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#eef2ff}
       code{background:#f6f8fa;padding:2px 6px;border-radius:6px}
+      a{color:#0645ad;text-decoration:none;}
+      a:hover{text-decoration:underline;}
     </style>
   </head>
   <body>
     <h1>Baseline Report</h1>
     <div class="summary">
       <div><b>Target:</b> <code>widely</code></div>
-      <div><b>Risk Score:</b> <span class="pill">42</span></div>
+      <div><b>Risk Score:</b> <span class="pill">50</span></div>
     </div>
     <table>
       <thead>
@@ -26,10 +28,29 @@
       </thead>
       <tbody>
     <tr>
-      <td>css-selector-has</td>
-      <td>not-baseline</td>
-      <td>42</td>
-      <td>demo.css:1</td>
+      <td><a href="https://web-platform-dx.github.io/web-features/features/css-selector-has.html" target="_blank">css-selector-has</a></td>
+      <td><span style="
+    display:inline-block;
+    padding:2px 8px;
+    border-radius:999px;
+    background:#fee2e2;
+    font-weight:500;
+  ">not-baseline</span></td>
+      <td>50</td>
+      <td>demo.css:<br/>src/app.css:</td>
+    </tr>
+  
+    <tr>
+      <td><a href="https://web-platform-dx.github.io/web-features/features/view-transitions-api.html" target="_blank">view-transitions-api</a></td>
+      <td><span style="
+    display:inline-block;
+    padding:2px 8px;
+    border-radius:999px;
+    background:#fef9c3;
+    font-weight:500;
+  ">newly</span></td>
+      <td>30</td>
+      <td>src/app.js:</td>
     </tr>
   </tbody>
     </table>
