@@ -1,0 +1,19 @@
+{
+  "summary": {
+    "target": "widely",
+    "riskScore": 42
+  },
+  "features": [
+    {
+      "id": "css-selector-has",
+      "status": "not-baseline",
+      "risk": 42,
+      "files": [
+        {
+          "path": "demo.css",
+          "loc": 1
+        }
+      ]
+    }
+  ]
+}
