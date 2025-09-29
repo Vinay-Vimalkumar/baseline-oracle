@@ -10,8 +10,10 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -22,32 +24,27 @@ jobs:
         run: npm i -g pnpm
 
       - name: Install deps
-        run: pnpm install
+        run: pnpm i
 
       - name: Build workspace
         run: pnpm -r build
 
-      - name: Scan changed files (fallback to repo)
-        run: |
-          # Try diff-only first; if nothing, scan repo
-          pnpm scan -- --out .baseline/scan.json --target widely --changed || true
-          if [ ! -s ".baseline/scan.json" ]; then
-            pnpm scan -- --out .baseline/scan.json --target widely .
-          fi
+      - name: Scan repository
+        run: npx baseline scan "src/**/*.{css,scss,js,jsx,ts,tsx}" demo.css --out .baseline/scan.json
 
       - name: Generate HTML report
-        run: pnpm report -- .baseline/scan.json --html .baseline/report.html
+        run: npx baseline report .baseline/scan.json --html .baseline/report.html
+
+      - name: Annotate PR (inline errors)
+        run: npx baseline annotate .baseline/scan.json
+
+      - name: Enforce policy
+        run: npx baseline policy .baseline/scan.json
 
       - name: Upload report artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: baseline-report
           path: .baseline/report.html
-          if-no-files-found: error
           retention-days: 7
-
-      - name: Enforce policy
-        env:
-          BASELINE_MAX_RISK: "70"
-          BASELINE_BLOCK_NOT_BASELINE: "true"
-        run: node scripts/policy.js
