@@ -6,19 +6,38 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
+const picocolors_1 = __importDefault(require("picocolors"));
+const zod_1 = require("zod");
 const engine_1 = require("@baseline-oracle/engine");
 const report_1 = require("@baseline-oracle/report");
+const Config = zod_1.z.object({
+    target: zod_1.z.enum(["widely", "newly"]).default("widely"),
+    policy: zod_1.z.object({
+        failAboveRisk: zod_1.z.number().default(70),
+        blockNotBaseline: zod_1.z.boolean().default(true)
+    }).default({ failAboveRisk: 70, blockNotBaseline: true }),
+    include: zod_1.z.array(zod_1.z.string()).default(["src/**/*.{css,scss,js,jsx,ts,tsx}", "demo.css"]),
+    ignore: zod_1.z.array(zod_1.z.string()).default(["**/node_modules/**"])
+});
+function loadConfig() {
+    const p = path_1.default.resolve("baseline.config.json");
+    if (fs_1.default.existsSync(p)) {
+        return Config.parse(JSON.parse(fs_1.default.readFileSync(p, "utf8")));
+    }
+    return Config.parse({});
+}
 function usage() {
     console.log(`
-baseline <command> [options]
+${picocolors_1.default.bold("baseline")} <command> [options]
 
 Commands:
-  scan <input> --out <file> --target <widely|newly>
-  report <scan.json> --html <file>
+  scan [paths...]           Scan files/dirs (uses baseline.config.json if present)
+    --out <file>            Output JSON (default: .baseline/scan.json)
 
-Examples:
-  baseline scan demo.css --out .baseline/scan.json --target widely
-  baseline report .baseline/scan.json --html .baseline/report.html
+  report <scan.json>        Render HTML report
+    --html <file>           Output HTML (default: .baseline/report.html)
+
+  policy <scan.json>        Exit non-zero if policy violated
 `);
 }
 function parseArgs(argv) {
@@ -39,43 +58,48 @@ function parseArgs(argv) {
 (async function main() {
     const [, , cmd, ...rest] = process.argv;
     const args = parseArgs(rest);
-    if (!cmd || (cmd !== "scan" && cmd !== "report")) {
-        console.log("✅ Baseline Oracle CLI running...");
+    const cfg = loadConfig();
+    if (!cmd) {
         usage();
         process.exit(0);
     }
     if (cmd === "scan") {
-        const input = args._[0] || "demo.css";
+        const inputs = args._.length ? args._ : cfg.include;
         const out = args.out || ".baseline/scan.json";
-        const target = args.target || "widely";
-        // very simple: if input is a file, analyze it; future: glob/dir support
-        const result = (0, engine_1.analyze)(input);
-        const scan = {
-            summary: { target, riskScore: result.riskScore ?? 0 },
-            features: [
-                {
-                    id: "css-selector-has",
-                    status: result.riskScore > 0 ? "not-baseline" : "widely",
-                    risk: result.riskScore ?? 0,
-                    files: [{ path: input, loc: 1 }]
-                }
-            ]
-        };
+        const result = await (0, engine_1.analyzePath)(inputs, { target: cfg.target, ignore: cfg.ignore });
         fs_1.default.mkdirSync(path_1.default.dirname(out), { recursive: true });
-        fs_1.default.writeFileSync(out, JSON.stringify(scan, null, 2), "utf8");
-        console.log("📝 wrote", out);
+        fs_1.default.writeFileSync(out, JSON.stringify(result, null, 2), "utf8");
+        console.log(picocolors_1.default.green("📝 wrote"), out);
         process.exit(0);
     }
     if (cmd === "report") {
         const scanFile = args._[0] || ".baseline/scan.json";
         const html = args.html || ".baseline/report.html";
         if (!fs_1.default.existsSync(scanFile)) {
-            console.error("❌ scan file not found:", scanFile);
+            console.error(picocolors_1.default.red("❌ scan file not found:"), scanFile);
             process.exit(1);
         }
         const data = JSON.parse(fs_1.default.readFileSync(scanFile, "utf8"));
         (0, report_1.renderReport)(data, html);
-        console.log("📄 report:", html);
+        console.log(picocolors_1.default.green("📄 report:"), html);
         process.exit(0);
     }
+    if (cmd === "policy") {
+        const scanFile = args._[0] || ".baseline/scan.json";
+        if (!fs_1.default.existsSync(scanFile)) {
+            console.error(picocolors_1.default.red("❌ scan file not found:"), scanFile);
+            process.exit(1);
+        }
+        const data = JSON.parse(fs_1.default.readFileSync(scanFile, "utf8"));
+        const risk = data?.summary?.riskScore ?? 0;
+        const failAbove = cfg.policy.failAboveRisk ?? 70;
+        if (risk > failAbove) {
+            console.error(picocolors_1.default.red(`⛔ Risk ${risk} > threshold ${failAbove} — failing.`));
+            process.exit(2);
+        }
+        console.log(picocolors_1.default.green("✅ Policy ok"));
+        process.exit(0);
+    }
+    usage();
+    process.exit(0);
 })();

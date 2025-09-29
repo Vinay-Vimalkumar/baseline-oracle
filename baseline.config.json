@@ -1,0 +1,6 @@
+{
+  "target": "widely",
+  "policy": { "failAboveRisk": 70, "blockNotBaseline": true },
+  "include": ["src/**/*.{css,scss,js,jsx,ts,tsx}", "demo.css"],
+  "ignore": ["**/node_modules/**"]
+}

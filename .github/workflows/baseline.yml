@@ -1,0 +1,34 @@
+﻿name: Baseline Oracle
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install pnpm
+        run: npm i -g pnpm
+      - name: Install deps
+        run: pnpm install
+      - name: Build
+        run: pnpm -r build
+      - name: Scan
+        run: node packages/cli/dist/index.js scan --out .baseline/scan.json
+      - name: Report
+        run: node packages/cli/dist/index.js report .baseline/scan.json --html .baseline/report.html
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: baseline-report
+          path: .baseline/report.html
+      - name: Policy gate
+        run: node packages/cli/dist/index.js policy .baseline/scan.json
