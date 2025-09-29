@@ -46,6 +46,12 @@ importers:
         specifier: workspace:*
         version: link:../report
 
+  packages/data:
+    dependencies:
+      web-features:
+        specifier: ^3.1.0
+        version: 3.1.0
+
   packages/engine: {}
 
   packages/report: {}
