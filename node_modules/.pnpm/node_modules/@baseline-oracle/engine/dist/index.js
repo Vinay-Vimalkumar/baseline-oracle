@@ -44,35 +44,31 @@ const postcss_1 = __importDefault(require("postcss"));
 const postcss_selector_parser_1 = __importDefault(require("postcss-selector-parser"));
 const acorn = __importStar(require("acorn"));
 /**
- * Try to load Baseline statuses from `web-features`.
- * - Works if `web-features` is installed.
- * - If unavailable or id missing, we fall back to caller-provided default.
+ * Load Baseline statuses from web-features if available
  */
 let baselineStatuses = {};
 try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     baselineStatuses = require("web-features/data/baseline-status.json");
 }
 catch {
-    // keep empty map; we'll use fallbacks
+    // fallback to empty map
 }
 /**
- * Map our detector IDs -> canonical web-features IDs (best-effort).
- * If you're unsure of an exact id, keep it identical and rely on fallback.
- *
- * You can refine these as you wire more detectors:
- *   https://www.npmjs.com/package/web-features
+ * Map our detector IDs -> canonical web-features IDs
  */
 const WEB_FEATURE_ID = {
-    "css-selector-has": "css-selector-has", // CSS :has()
-    "css-container-queries": "css-container-queries", // @container queries
-    "css-color-lch-lab": "css-color-lch-lab", // lch()/lab()
-    "view-transitions-api": "view-transitions-api", // document.startViewTransition
-    "html-dialog-element": "html-dialog-element" // <dialog>/showModal()
+    "css-selector-has": "css-selector-has",
+    "css-container-queries": "css-container-queries",
+    "css-color-lch-lab": "css-color-lch-lab",
+    "css-focus-visible": "css-focus-visible",
+    "css-at-layer": "css-at-layer",
+    "css-color-mix": "css-color-mix",
+    "view-transitions-api": "view-transitions-api",
+    "html-dialog-element": "html-dialog-element",
+    "html-popover-api": "html-popover-api",
 };
 /**
- * Lookup Baseline status for a (possibly mapped) feature id.
- * Falls back to the provided default if not found.
+ * Lookup Baseline status with fallback
  */
 function baselineStatusFor(internalId, fallback) {
     const webId = WEB_FEATURE_ID[internalId] ?? internalId;
@@ -82,9 +78,7 @@ function baselineStatusFor(internalId, fallback) {
     return fallback;
 }
 /**
- * Simple risk scoring:
- * - Base by status
- * - Severity reduction if there's an easy fallback
+ * Risk scoring
  */
 function score(status, hasEasyFallback) {
     const base = status === "not-baseline" ? 1 : status === "newly" ? 0.6 : 0.2;
@@ -92,8 +86,7 @@ function score(status, hasEasyFallback) {
     return Math.round(base * severity * 100);
 }
 /**
- * CSS analysis:
- * - Detects :has(), @container, lch()/lab() usage
+ * CSS analysis
  */
 async function analyzeCss(filePath) {
     const css = fs_1.default.readFileSync(filePath, "utf8");
@@ -101,21 +94,28 @@ async function analyzeCss(filePath) {
     let hasHas = false;
     let hasContainer = false;
     let hasModernColor = false;
+    let hasFocusVisible = false;
+    let hasAtLayer = false;
+    let hasColorMix = false;
     root.walkAtRules((at) => {
         if (at.name === "container")
             hasContainer = true;
+        if (at.name === "layer")
+            hasAtLayer = true;
     });
-    // naive color check
     root.walkDecls((d) => {
         if (/\blch\(|\blab\(/i.test(d.value))
             hasModernColor = true;
+        if (/\bcolor-mix\(/i.test(d.value))
+            hasColorMix = true;
     });
-    // selector check
     root.walkRules((rule) => {
         (0, postcss_selector_parser_1.default)((selRoot) => {
             selRoot.walkPseudos((p) => {
                 if (p.value === ":has")
                     hasHas = true;
+                if (p.value === ":focus-visible")
+                    hasFocusVisible = true;
             });
         }).processSync(rule.selector);
     });
@@ -125,8 +125,8 @@ async function analyzeCss(filePath) {
         findings.push({
             id: "css-selector-has",
             status,
-            risk: score(status, /* easy fallback? */ true),
-            files: [{ path: filePath }]
+            risk: score(status, true),
+            files: [{ path: filePath }],
         });
     }
     if (hasContainer) {
@@ -134,8 +134,8 @@ async function analyzeCss(filePath) {
         findings.push({
             id: "css-container-queries",
             status,
-            risk: score(status, /* easy fallback? */ false),
-            files: [{ path: filePath }]
+            risk: score(status, false),
+            files: [{ path: filePath }],
         });
     }
     if (hasModernColor) {
@@ -143,20 +143,44 @@ async function analyzeCss(filePath) {
         findings.push({
             id: "css-color-lch-lab",
             status,
-            risk: score(status, /* easy fallback? */ true),
-            files: [{ path: filePath }]
+            risk: score(status, true),
+            files: [{ path: filePath }],
+        });
+    }
+    if (hasFocusVisible) {
+        const status = baselineStatusFor("css-focus-visible", "widely");
+        findings.push({
+            id: "css-focus-visible",
+            status,
+            risk: score(status, true),
+            files: [{ path: filePath }],
+        });
+    }
+    if (hasAtLayer) {
+        const status = baselineStatusFor("css-at-layer", "newly");
+        findings.push({
+            id: "css-at-layer",
+            status,
+            risk: score(status, true),
+            files: [{ path: filePath }],
+        });
+    }
+    if (hasColorMix) {
+        const status = baselineStatusFor("css-color-mix", "newly");
+        findings.push({
+            id: "css-color-mix",
+            status,
+            risk: score(status, true),
+            files: [{ path: filePath }],
         });
     }
     return findings;
 }
 /**
- * JS analysis (very light, string-based now; can be AST-driven later):
- * - View Transitions API
- * - HTMLDialogElement / showModal()
+ * JS analysis
  */
 async function analyzeJs(filePath) {
     const src = fs_1.default.readFileSync(filePath, "utf8");
-    // Parse to ensure it's valid JS (we don't traverse yet, but ready to)
     acorn.parse(src, { ecmaVersion: "latest", sourceType: "module" });
     const findings = [];
     if (/\bdocument\.startViewTransition\b/.test(src)) {
@@ -164,8 +188,8 @@ async function analyzeJs(filePath) {
         findings.push({
             id: "view-transitions-api",
             status,
-            risk: score(status, /* easy fallback? */ true),
-            files: [{ path: filePath }]
+            risk: score(status, true),
+            files: [{ path: filePath }],
         });
     }
     if (/\bdialog\.showModal\(\)/.test(src) || /\bHTMLDialogElement\b/.test(src)) {
@@ -173,20 +197,29 @@ async function analyzeJs(filePath) {
         findings.push({
             id: "html-dialog-element",
             status,
-            risk: score(status, /* easy fallback? */ true),
-            files: [{ path: filePath }]
+            risk: score(status, true),
+            files: [{ path: filePath }],
+        });
+    }
+    if (/\bshowPopover\(\)|hidePopover\(\)|togglePopover\(\)/.test(src) || /\bpopover\s*=/.test(src)) {
+        const status = baselineStatusFor("html-popover-api", "newly");
+        findings.push({
+            id: "html-popover-api",
+            status,
+            risk: score(status, true),
+            files: [{ path: filePath }],
         });
     }
     return findings;
 }
 /**
- * Main entry: globs files, runs analyzers, merges results, computes summary.
+ * Main entry
  */
 async function analyzePath(inputPaths, opts = { target: "widely" }) {
     const patterns = inputPaths.length ? inputPaths : ["demo.css"];
     const files = await (0, fast_glob_1.default)(patterns, {
         ignore: opts.ignore ?? ["**/node_modules/**"],
-        dot: false
+        dot: false,
     });
     const all = [];
     for (const f of files) {
@@ -205,7 +238,6 @@ async function analyzePath(inputPaths, opts = { target: "widely" }) {
         if (prev) {
             prev.files.push(...item.files);
             prev.risk = Math.max(prev.risk, item.risk);
-            // keep worst status (not-baseline > newly > widely)
             const order = { "not-baseline": 3, "newly": 2, "widely": 1 };
             if (order[item.status] > order[prev.status])
                 prev.status = item.status;

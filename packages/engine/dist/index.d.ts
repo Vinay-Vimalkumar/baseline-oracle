@@ -19,7 +19,7 @@ type ScanResult = {
     features: Finding[];
 };
 /**
- * Main entry: globs files, runs analyzers, merges results, computes summary.
+ * Main entry
  */
 export declare function analyzePath(inputPaths: string[], opts?: {
     target: "widely" | "newly";
