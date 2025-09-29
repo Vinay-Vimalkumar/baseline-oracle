@@ -1,0 +1,14 @@
+{
+  "name": "@baseline-oracle/cli",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "bin": {
+    "baseline": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@baseline-oracle/engine": "0.1.0"
+  }
+}
